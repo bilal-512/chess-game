@@ -98,8 +98,8 @@ int main() {
                     }
                 }
             } else {
-                // Try to move piece
-                if (selectedPiece->IsMoveValid(row, col)) {
+                // Try to move piece - now passing pieces vector
+                if (selectedPiece->IsMoveValid(row, col, pieces)) {
                     Piece* target = nullptr;
                     int targetIndex = -1;
                     

@@ -2,6 +2,7 @@
 #include <raylib.h>
 #include <string>
 #include <iostream>
+#include <vector>
 
 class Piece {
 protected:
@@ -18,7 +19,7 @@ public:
     virtual ~Piece() {}
 
     virtual std::string GetName() const = 0;  // abstract
-    virtual bool IsMoveValid(int newRow, int newCol) const = 0;
+    virtual bool IsMoveValid(int newRow, int newCol, const std::vector<Piece*>& allPieces) const = 0;
 
     virtual void Draw(int squareSize) const {
         int x = col * squareSize + (squareSize - (texture.width * scale)) / 2;
@@ -48,30 +49,68 @@ public:
 
     std::string GetName() const override { return "Pawn"; }
 
-    bool IsMoveValid(int newRow, int newCol) const override {
+    bool IsMoveValid(int newRow, int newCol, const std::vector<Piece*>& allPieces) const override {
         int dir = isWhite ? -1 : 1;   // white pawns move up, black pawns move down
+        int rowDiff = newRow - row;
+        int colDiff = newCol - col;
 
-        // One step forward
-        if (newCol == col && newRow == row + dir) {
-            return true;
+        // Find piece at destination
+        Piece* targetPiece = nullptr;
+        for (auto* p : allPieces) {
+            if (p->GetRow() == newRow && p->GetCol() == newCol) {
+                targetPiece = p;
+                break;
+            }
         }
 
-        // Two steps forward (only if on starting rank and not moved yet)
-        int startRow = isWhite ? 6 : 1;  // white pawns start on row 6, black on row 1
-        if (!hasMoved && row == startRow && newCol == col && newRow == row + 2 * dir) {
-            return true;
+        // Diagonal capture (one square diagonally)
+        if (abs(colDiff) == 1 && rowDiff == dir) {
+            // Can only capture if there's an opponent's piece that's NOT a king
+            if (targetPiece != nullptr && 
+                targetPiece->IsWhite() != isWhite && 
+                targetPiece->GetName() != "King") {
+                return true;
+            }
+            return false;
+        }
+
+        // Forward movement (must be same column)
+        if (colDiff == 0) {
+            // One step forward
+            if (rowDiff == dir) {
+                // Square must be empty
+                if (targetPiece == nullptr) {
+                    return true;
+                }
+                return false;
+            }
+
+            // Two steps forward (only if on starting rank and not moved yet)
+            int startRow = isWhite ? 6 : 1;
+            if (!hasMoved && row == startRow && rowDiff == 2 * dir) {
+                // Both squares must be empty
+                if (targetPiece == nullptr) {
+                    // Check intermediate square
+                    int intermediateRow = row + dir;
+                    for (auto* p : allPieces) {
+                        if (p->GetRow() == intermediateRow && p->GetCol() == col) {
+                            return false;  // Path is blocked
+                        }
+                    }
+                    return true;
+                }
+                return false;
+            }
         }
 
         return false;
     }
 
-    void SetPosition(int r, int c)  {
+    void SetPosition(int r, int c) {
         Piece::SetPosition(r, c);
         hasMoved = true;  // disable double-step after first move
     }
 };
-
-
 
 class Rook : public Piece {
 public:
@@ -80,7 +119,7 @@ public:
 
     std::string GetName() const override { return "Rook"; }
 
-    bool IsMoveValid(int newRow, int newCol) const override {
+    bool IsMoveValid(int newRow, int newCol, const std::vector<Piece*>& allPieces) const override {
         return (newRow == row || newCol == col);
     }
 };
@@ -92,7 +131,7 @@ public:
 
     std::string GetName() const override { return "Knight"; }
 
-    bool IsMoveValid(int newRow, int newCol) const override {
+    bool IsMoveValid(int newRow, int newCol, const std::vector<Piece*>& allPieces) const override {
         int dr = abs(newRow - row);
         int dc = abs(newCol - col);
         return (dr == 2 && dc == 1) || (dr == 1 && dc == 2);
@@ -106,7 +145,7 @@ public:
 
     std::string GetName() const override { return "Bishop"; }
 
-    bool IsMoveValid(int newRow, int newCol) const override {
+    bool IsMoveValid(int newRow, int newCol, const std::vector<Piece*>& allPieces) const override {
         return abs(newRow - row) == abs(newCol - col);
     }
 };
@@ -118,7 +157,7 @@ public:
 
     std::string GetName() const override { return "Queen"; }
 
-    bool IsMoveValid(int newRow, int newCol) const override {
+    bool IsMoveValid(int newRow, int newCol, const std::vector<Piece*>& allPieces) const override {
         return (row == newRow || col == newCol ||
                 abs(newRow - row) == abs(newCol - col));
     }
@@ -131,7 +170,7 @@ public:
 
     std::string GetName() const override { return "King"; }
 
-    bool IsMoveValid(int newRow, int newCol) const override {
+    bool IsMoveValid(int newRow, int newCol, const std::vector<Piece*>& allPieces) const override {
         int dr = abs(newRow - row);
         int dc = abs(newCol - col);
         return (dr <= 1 && dc <= 1);
