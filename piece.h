@@ -11,14 +11,15 @@ protected:
     float scale;
     Color tint;
     bool isWhite;
+    bool hasMoved;
 
 public:
     Piece(Texture2D tex, int r, int c, bool white, float s = 0.5f, Color t = WHITE)
-        : texture(tex), row(r), col(c), isWhite(white), scale(s), tint(t) {}
+        : texture(tex), row(r), col(c), isWhite(white), scale(s), tint(t), hasMoved(false) {}
 
     virtual ~Piece() {}
 
-    virtual std::string GetName() const = 0;  // abstract
+    virtual std::string GetName() const = 0;
     virtual bool IsMoveValid(int newRow, int newCol, const std::vector<Piece*>& allPieces) const = 0;
 
     virtual void Draw(int squareSize) const {
@@ -27,34 +28,58 @@ public:
         DrawTextureEx(texture, {(float)x, (float)y}, 0.0f, scale, tint);
     }
 
-    void SetPosition(int r, int c) {
+    virtual void SetPosition(int r, int c) {
         row = r;
         col = c;
+        hasMoved = true;
     }
 
+    void SetTexture(Texture2D tex) { texture = tex; }
     int GetRow() const { return row; }
     int GetCol() const { return col; }
     bool IsWhite() const { return isWhite; }
+    bool HasMoved() const { return hasMoved; }
+
+    // Check if path is clear between two positions (for sliding pieces)
+    bool IsPathClear(int newRow, int newCol, const std::vector<Piece*>& allPieces) const {
+        int rowDir = (newRow > row) ? 1 : (newRow < row) ? -1 : 0;
+        int colDir = (newCol > col) ? 1 : (newCol < col) ? -1 : 0;
+
+        int checkRow = row + rowDir;
+        int checkCol = col + colDir;
+
+        while (checkRow != newRow || checkCol != newCol) {
+            for (auto* p : allPieces) {
+                if (p->GetRow() == checkRow && p->GetCol() == checkCol) {
+                    return false; // Path blocked
+                }
+            }
+            checkRow += rowDir;
+            checkCol += colDir;
+        }
+        return true;
+    }
 };
 
 // ---------------- Subclasses ----------------
 
 class Pawn : public Piece {
 private:
-    bool hasMoved = false;
+    int lastMoveDoubleStep; // Track which move number this pawn double-stepped
 
 public:
     Pawn(Texture2D tex, int r, int c, bool white)
-        : Piece(tex, r, c, white) {}
+        : Piece(tex, r, c, white), lastMoveDoubleStep(-1) {}
 
     std::string GetName() const override { return "Pawn"; }
 
+    int GetLastMoveDoubleStep() const { return lastMoveDoubleStep; }
+
     bool IsMoveValid(int newRow, int newCol, const std::vector<Piece*>& allPieces) const override {
-        int dir = isWhite ? -1 : 1;   // white pawns move up, black pawns move down
+        int dir = isWhite ? -1 : 1;
         int rowDiff = newRow - row;
         int colDiff = newCol - col;
 
-        // Find piece at destination
         Piece* targetPiece = nullptr;
         for (auto* p : allPieces) {
             if (p->GetRow() == newRow && p->GetCol() == newCol) {
@@ -63,9 +88,8 @@ public:
             }
         }
 
-        // Diagonal capture (one square diagonally)
+        // Diagonal capture
         if (abs(colDiff) == 1 && rowDiff == dir) {
-            // Can only capture if there's an opponent's piece that's NOT a king
             if (targetPiece != nullptr && 
                 targetPiece->IsWhite() != isWhite && 
                 targetPiece->GetName() != "King") {
@@ -74,27 +98,22 @@ public:
             return false;
         }
 
-        // Forward movement (must be same column)
+        // Forward movement
         if (colDiff == 0) {
-            // One step forward
             if (rowDiff == dir) {
-                // Square must be empty
                 if (targetPiece == nullptr) {
                     return true;
                 }
                 return false;
             }
 
-            // Two steps forward (only if on starting rank and not moved yet)
             int startRow = isWhite ? 6 : 1;
             if (!hasMoved && row == startRow && rowDiff == 2 * dir) {
-                // Both squares must be empty
                 if (targetPiece == nullptr) {
-                    // Check intermediate square
                     int intermediateRow = row + dir;
                     for (auto* p : allPieces) {
                         if (p->GetRow() == intermediateRow && p->GetCol() == col) {
-                            return false;  // Path is blocked
+                            return false;
                         }
                     }
                     return true;
@@ -106,9 +125,16 @@ public:
         return false;
     }
 
-    void SetPosition(int r, int c) {
+    void SetPosition(int r, int c) override {
+        int rowDiff = abs(r - row);
+        if (rowDiff == 2 && !hasMoved) {
+            lastMoveDoubleStep = 0; // Will be set by game logic
+        }
         Piece::SetPosition(r, c);
-        hasMoved = true;  // disable double-step after first move
+    }
+
+    void SetLastMoveDoubleStep(int moveNum) {
+        lastMoveDoubleStep = moveNum;
     }
 };
 
@@ -120,7 +146,8 @@ public:
     std::string GetName() const override { return "Rook"; }
 
     bool IsMoveValid(int newRow, int newCol, const std::vector<Piece*>& allPieces) const override {
-        return (newRow == row || newCol == col);
+        if (newRow != row && newCol != col) return false;
+        return IsPathClear(newRow, newCol, allPieces);
     }
 };
 
@@ -146,7 +173,8 @@ public:
     std::string GetName() const override { return "Bishop"; }
 
     bool IsMoveValid(int newRow, int newCol, const std::vector<Piece*>& allPieces) const override {
-        return abs(newRow - row) == abs(newCol - col);
+        if (abs(newRow - row) != abs(newCol - col)) return false;
+        return IsPathClear(newRow, newCol, allPieces);
     }
 };
 
@@ -158,8 +186,11 @@ public:
     std::string GetName() const override { return "Queen"; }
 
     bool IsMoveValid(int newRow, int newCol, const std::vector<Piece*>& allPieces) const override {
-        return (row == newRow || col == newCol ||
-                abs(newRow - row) == abs(newCol - col));
+        bool straightLine = (row == newRow || col == newCol);
+        bool diagonal = (abs(newRow - row) == abs(newCol - col));
+        
+        if (!straightLine && !diagonal) return false;
+        return IsPathClear(newRow, newCol, allPieces);
     }
 };
 
