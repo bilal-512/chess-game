@@ -75,55 +75,51 @@ public:
 
     int GetLastMoveDoubleStep() const { return lastMoveDoubleStep; }
 
-    bool IsMoveValid(int newRow, int newCol, const std::vector<Piece*>& allPieces) const override {
-        int dir = isWhite ? -1 : 1;
-        int rowDiff = newRow - row;
-        int colDiff = newCol - col;
+bool IsMoveValid(int newRow, int newCol, const std::vector<Piece*>& allPieces) const override {
+    int dir = isWhite ? -1 : 1;   // White moves up (row decreases), black moves down
+    int rowDiff = newRow - row;
+    int colDiff = newCol - col;
 
-        Piece* targetPiece = nullptr;
-        for (auto* p : allPieces) {
-            if (p->GetRow() == newRow && p->GetCol() == newCol) {
-                targetPiece = p;
-                break;
-            }
+    Piece* targetPiece = nullptr;
+    for (auto* p : allPieces) {
+        if (p->GetRow() == newRow && p->GetCol() == newCol) {
+            targetPiece = p;
+            break;
         }
+    }
 
-        // Diagonal capture
-        if (abs(colDiff) == 1 && rowDiff == dir) {
-            if (targetPiece != nullptr && 
-                targetPiece->IsWhite() != isWhite && 
-                targetPiece->GetName() != "King") {
-                return true;
-            }
-            return false;
+    // ----- Diagonal capture -----
+    if (abs(colDiff) == 1 && rowDiff == dir) {
+        if (targetPiece != nullptr && targetPiece->IsWhite() != isWhite && targetPiece->GetName() != "King") {
+            return true;
         }
-
-        // Forward movement
-        if (colDiff == 0) {
-            if (rowDiff == dir) {
-                if (targetPiece == nullptr) {
-                    return true;
-                }
-                return false;
-            }
-
-            int startRow = isWhite ? 6 : 1;
-            if (!hasMoved && row == startRow && rowDiff == 2 * dir) {
-                if (targetPiece == nullptr) {
-                    int intermediateRow = row + dir;
-                    for (auto* p : allPieces) {
-                        if (p->GetRow() == intermediateRow && p->GetCol() == col) {
-                            return false;
-                        }
-                    }
-                    return true;
-                }
-                return false;
-            }
-        }
-
         return false;
     }
+
+    // ----- Forward movement -----
+    if (colDiff == 0) {
+        // Single-step forward
+        if (rowDiff == dir && targetPiece == nullptr) {
+            return true;
+        }
+
+        // Double-step forward (only from starting rank)
+        int startRow = isWhite ? 6 : 1;
+        if (row == startRow && rowDiff == 2 * dir && targetPiece == nullptr) {
+            int intermediateRow = row + dir;
+            // Check if the square in between is empty
+            for (auto* p : allPieces) {
+                if (p->GetRow() == intermediateRow && p->GetCol() == col) {
+                    return false; // Blocked
+                }
+            }
+            return true;
+        }
+    }
+
+    return false;
+}
+
 
     void SetPosition(int r, int c) override {
         int rowDiff = abs(r - row);
