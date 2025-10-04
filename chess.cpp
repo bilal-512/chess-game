@@ -37,6 +37,16 @@ int main() {
             int y = 1 * squareSize + (squareSize - (b_pawn.height * 0.5f)) / 2;
             DrawTextureEx(b_pawn, {(float)x, (float)y}, 0.0f, 0.5f, WHITE);
         }
+        Texture2D backRank[8] = {
+        b_rook, b_knight, b_bishop, b_queen,
+        b_king, b_bishop, b_knight, b_rook
+        };
+
+            for (int col = 0; col < 8; col++) {
+                int x = col * squareSize + (squareSize - (backRank[col].width * 0.5f)) / 2;
+                int y = 0 * squareSize + (squareSize - (backRank[col].height * 0.5f)) / 2;
+                DrawTextureEx(backRank[col], {(float)x, (float)y}, 0.0f, 0.5f, WHITE);
+            }
 
 
 
@@ -69,9 +79,14 @@ int main() {
 
 
 
-        
-        EndDrawing();
+    EndDrawing();
     }
+    UnloadTexture(b_pawn);
+    UnloadTexture(b_rook);
+    UnloadTexture(b_knight);
+    UnloadTexture(b_bishop);
+    UnloadTexture(b_queen);
+    UnloadTexture(b_king);
     
     CloseWindow();
     return 0;
