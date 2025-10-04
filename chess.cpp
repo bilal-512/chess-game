@@ -81,6 +81,13 @@ bool WouldBeInCheck(Piece* piece, int newRow, int newCol, bool isWhite, std::vec
     return inCheck;
 }
 
+// NEW: Check if a move resolves check (only used when king is in check)
+bool DoesResolveCheck(Piece* piece, int newRow, int newCol, bool isWhite, std::vector<Piece*>& pieces) {
+    // This is the same as WouldBeInCheck but returns the opposite
+    // If the move results in NOT being in check, it resolves the check
+    return !WouldBeInCheck(piece, newRow, newCol, isWhite, pieces);
+}
+
 // Check if a player has any legal moves
 bool HasLegalMoves(bool isWhite, std::vector<Piece*>& pieces) {
     for (auto* p : pieces) {
@@ -382,13 +389,31 @@ int main() {
                 } else {
                     bool moveSuccessful = false;
                     
-                    // Check if move would leave king in check
+                    // CRITICAL FIX: Check if the king is in check
+                    bool currentlyInCheck = IsInCheck(whiteTurn, pieces);
+                    
+                    // Check if move would leave king in check OR doesn't resolve existing check
                     bool wouldBeCheck = WouldBeInCheck(selectedPiece, row, col, whiteTurn, pieces);
                     
-                    if (!wouldBeCheck) {
+                    // NEW: If in check, the move MUST resolve the check
+                    bool isLegalMove = !wouldBeCheck;
+                    if (currentlyInCheck) {
+                        // When in check, only moves that get out of check are legal
+                        isLegalMove = DoesResolveCheck(selectedPiece, row, col, whiteTurn, pieces);
+                    }
+                    
+                    if (isLegalMove) {
                         // Check for castling
                         if (selectedPiece->GetName() == "King" && !selectedPiece->HasMoved() &&
                             row == selectedRow && abs(col - selectedCol) == 2) {
+                            
+                            // Cannot castle while in check
+                            if (currentlyInCheck) {
+                                selectedPiece = nullptr;
+                                selectedRow = selectedCol = -1;
+                                EndDrawing();
+                                continue;
+                            }
                             
                             int rookCol = (col > selectedCol) ? 7 : 0;
                             Piece* rook = FindPieceAt(row, rookCol, pieces);
@@ -541,12 +566,24 @@ int main() {
                 DrawRectangleLinesEx(rect, 3, GOLD);
                 
                 // Show valid moves for selected piece
+                bool currentlyInCheck = IsInCheck(whiteTurn, pieces);
+                
                 for (int r = 0; r < 8; r++) {
                     for (int c = 0; c < 8; c++) {
                         if (selectedPiece->IsMoveValid(r, c, pieces)) {
                             Piece* target = FindPieceAt(r, c, pieces);
                             if (!target || target->IsWhite() != selectedPiece->IsWhite()) {
-                                if (!WouldBeInCheck(selectedPiece, r, c, whiteTurn, pieces)) {
+                                // Check if move is legal (doesn't leave in check)
+                                bool isLegal = false;
+                                if (currentlyInCheck) {
+                                    // Must resolve check
+                                    isLegal = DoesResolveCheck(selectedPiece, r, c, whiteTurn, pieces);
+                                } else {
+                                    // Must not put in check
+                                    isLegal = !WouldBeInCheck(selectedPiece, r, c, whiteTurn, pieces);
+                                }
+                                
+                                if (isLegal) {
                                     // Draw small circle for valid moves
                                     int centerX = c * squareSize + squareSize / 2;
                                     int centerY = r * squareSize + squareSize / 2;
