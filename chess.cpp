@@ -54,7 +54,7 @@ bool IsInCheck(bool whiteKing, const std::vector<Piece*>& pieces) {
     return IsSquareUnderAttack(king->GetRow(), king->GetCol(), !whiteKing, pieces);
 }
 
-// Simulate a move and check if it leaves/puts the king in check
+// checking that move and check if it leaves/puts the king in check
 bool WouldBeInCheck(Piece* piece, int newRow, int newCol, bool isWhite, std::vector<Piece*>& pieces) {
     // Save current state
     int oldRow = piece->GetRow();
@@ -265,7 +265,7 @@ int main() {
     InitWindow(width, height, "Two-Player Chess");
     SetTargetFPS(60);
 
-    // Load black piece textures
+    
     Texture2D b_pawn = LoadTexture("./Images/b_pawn_png_128px.png");
     Texture2D b_rook = LoadTexture("./Images/b_rook_png_128px.png");
     Texture2D b_knight = LoadTexture("./Images/b_knight_png_128px.png");
@@ -273,7 +273,7 @@ int main() {
     Texture2D b_queen = LoadTexture("./Images/b_queen_png_128px.png");
     Texture2D b_king = LoadTexture("./Images/b_king_png_128px.png");
 
-    // Load white piece textures
+    
     Texture2D w_pawn = LoadTexture("./Images/w_pawn_png_128px.png");
     Texture2D w_rook = LoadTexture("./Images/w_rook_png_128px.png");
     Texture2D w_knight = LoadTexture("./Images/w_knight_png_128px.png");

@@ -39,11 +39,24 @@ public:
     int GetCol() const { return col; }
     bool IsWhite() const { return isWhite; }
     bool HasMoved() const { return hasMoved; }
-
-    // Check if path is clear between two positions (for sliding pieces)
     bool IsPathClear(int newRow, int newCol, const std::vector<Piece*>& allPieces) const {
-        int rowDir = (newRow > row) ? 1 : (newRow < row) ? -1 : 0;
-        int colDir = (newCol > col) ? 1 : (newCol < col) ? -1 : 0;
+        int rowDir;
+        if (newRow > row) {
+            rowDir = 1;
+        } else if (newRow < row) {
+            rowDir = -1;
+        } else {
+            rowDir = 0;
+        }
+
+        int colDir;
+        if (newCol > col) {
+            colDir = 1;
+        } else if (newCol < col) {
+            colDir = -1;
+        } else {
+            colDir = 0;
+        }
 
         int checkRow = row + rowDir;
         int checkCol = col + colDir;
@@ -61,11 +74,9 @@ public:
     }
 };
 
-// ---------------- Subclasses ----------------
-
 class Pawn : public Piece {
 private:
-    int lastMoveDoubleStep; // Track which move number this pawn double-stepped
+    int lastMoveDoubleStep; 
 
 public:
     Pawn(Texture2D tex, int r, int c, bool white)
@@ -76,7 +87,7 @@ public:
     int GetLastMoveDoubleStep() const { return lastMoveDoubleStep; }
 
 bool IsMoveValid(int newRow, int newCol, const std::vector<Piece*>& allPieces) const override {
-    int dir = isWhite ? -1 : 1;   // White moves up (row decreases), black moves down
+    int dir = isWhite ? -1 : 1;   
     int rowDiff = newRow - row;
     int colDiff = newCol - col;
 
@@ -88,15 +99,15 @@ bool IsMoveValid(int newRow, int newCol, const std::vector<Piece*>& allPieces) c
         }
     }
 
-    // ----- Diagonal capture -----
+    // Diagonal capture 
     if (abs(colDiff) == 1 && rowDiff == dir) {
-        if (targetPiece != nullptr && targetPiece->IsWhite() != isWhite && targetPiece->GetName() != "King") {
+        if (targetPiece != nullptr && targetPiece->IsWhite() != isWhite ) {
             return true;
         }
         return false;
     }
 
-    // ----- Forward movement -----
+    //  Forward movement 
     if (colDiff == 0) {
         // Single-step forward
         if (rowDiff == dir && targetPiece == nullptr) {
@@ -124,7 +135,7 @@ bool IsMoveValid(int newRow, int newCol, const std::vector<Piece*>& allPieces) c
     void SetPosition(int r, int c) override {
         int rowDiff = abs(r - row);
         if (rowDiff == 2 && !hasMoved) {
-            lastMoveDoubleStep = 0; // Will be set by game logic
+            lastMoveDoubleStep = 0; 
         }
         Piece::SetPosition(r, c);
     }
